@@ -48,3 +48,15 @@ Implemented [`ingestion/parser.py`](src/memora/ingestion/parser.py): `parse(sour
 - Tests added in [`tests/test_parser.py`](tests/test_parser.py) covering a normal read, missing file, and unsupported extension.
 
 **Next steps:** implement `ingestion/chunker.py` (split parsed text into retrieval-sized chunks), then `ingestion/embedder.py` and `memory/vector_store.py` to complete the ingest half of the round trip.
+
+## 2026-09-08 — Chunker implemented
+
+Implemented [`ingestion/chunker.py`](src/memora/ingestion/chunker.py): `chunk(document, chunk_size, chunk_overlap)` takes a `ParsedDocument` and returns a list of `Chunk(text, source, chunk_index, start_offset, end_offset)`.
+
+- Character-based sliding window (default 1000 chars, 150 overlap) — simple and tokenizer-agnostic; can move to token-based sizing once `ingestion/embedder.py` picks a tokenizer.
+- Backs off to the nearest whitespace boundary within range so chunks don't cut mid-word (skipped on the final chunk).
+- Guards forward progress explicitly: if the whitespace backoff would make the next `start` stall or go backwards, it advances to `end` instead — avoids a subtle infinite-loop edge case with small `chunk_size` values.
+- Raises `ValueError` if `chunk_overlap >= chunk_size`; returns `[]` for blank/whitespace-only documents.
+- Tests added in [`tests/test_chunker.py`](tests/test_chunker.py): single-chunk short text, multi-chunk overlap on long text, empty text, and the overlap/size validation error. Full suite (`pytest tests/`) passes, 7/7.
+
+**Next steps:** implement `ingestion/embedder.py` (sentence-transformers, `all-MiniLM-L6-v2`) and `memory/vector_store.py` (LanceDB) to complete the ingest half of the round trip.
