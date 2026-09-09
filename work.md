@@ -60,3 +60,14 @@ Implemented [`ingestion/chunker.py`](src/memora/ingestion/chunker.py): `chunk(do
 - Tests added in [`tests/test_chunker.py`](tests/test_chunker.py): single-chunk short text, multi-chunk overlap on long text, empty text, and the overlap/size validation error. Full suite (`pytest tests/`) passes, 7/7.
 
 **Next steps:** implement `ingestion/embedder.py` (sentence-transformers, `all-MiniLM-L6-v2`) and `memory/vector_store.py` (LanceDB) to complete the ingest half of the round trip.
+
+## 2026-09-09 — Embedder implemented
+
+Implemented [`ingestion/embedder.py`](src/memora/ingestion/embedder.py): `embed(texts, model_name=None)` returns one vector per input text.
+
+- Loads `sentence-transformers` (default model from `settings.embedding_model`, i.e. `all-MiniLM-L6-v2`) lazily and caches it with `lru_cache` keyed on model name, so the model is loaded once per process rather than per call.
+- Embeddings are L2-normalized (`normalize_embeddings=True`) so cosine similarity reduces to a dot product — matches how the upcoming LanceDB vector store will search.
+- `embed([])` short-circuits to `[]` without touching the model.
+- Tests added in [`tests/test_embedder.py`](tests/test_embedder.py): shape/dimension check, empty input, determinism, and a semantic sanity check (similar sentences score closer than unrelated ones on dot product).
+
+**Next steps:** implement `memory/vector_store.py` (LanceDB) so ingested chunks + embeddings can actually be persisted and searched, then wire `ingestion/parser.py` → `chunker.py` → `embedder.py` → `vector_store.py` into a single ingest path (likely called from `api/routes/ingest.py`).
