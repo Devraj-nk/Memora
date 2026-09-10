@@ -84,3 +84,18 @@ Implemented [`memory/vector_store.py`](src/memora/memory/vector_store.py): `Vect
 This completes the ingest half of the pipeline end to end: `parser` → `chunker` → `embedder` → `vector_store`.
 
 **Next steps:** wire these four into a single ingest function callable from `api/routes/ingest.py`, then start on `retrieval/hybrid.py` (needs this vector store's `search`, plus a keyword/BM25 signal) to begin the query half.
+
+## 2026-09-11 — Ingest router implemented
+
+Added [`ingestion/pipeline.py`](src/memora/ingestion/pipeline.py): `ingest_source(source_path, store)` runs `parse` → `chunk` → `embed` → `store.add`, returning `IngestResult(source, chunk_count)`. Skips embedding/storage entirely for a blank document (`chunk_count == 0`, nothing written).
+
+Wired [`api/routes/ingest.py`](src/memora/api/routes/ingest.py): `POST /ingest/` takes `{"path": "..."}`, runs the pipeline, returns `{"source", "chunk_count"}`.
+
+- `VectorStore` is a singleton via `get_vector_store()` (`@lru_cache`, path from `settings.vector_store_path`), injected with FastAPI's `Depends` rather than instantiated inline — lets tests swap in a `tmp_path`-backed store via `app.dependency_overrides` instead of touching `data/db/`.
+- Maps pipeline errors to HTTP: `FileNotFoundError` → 404, `ValueError` (unsupported extension, from `parser.parse`) → 400.
+- Confirmed with `TestClient` that `POST /ingest` (no trailing slash) 307-redirects to `/ingest/` and still reaches the handler — both forms work, tests hit `/ingest/` directly to skip the extra hop.
+- Only accepts a local file `path` for now, matching what `ingestion/parser.py` actually supports — URL/raw-text ingestion (per the README's "web content" ambition) is future work, not faked here.
+
+Tests: [`tests/test_pipeline.py`](tests/test_pipeline.py) (pipeline function directly, no HTTP) and [`tests/test_ingest_route.py`](tests/test_ingest_route.py) (through `TestClient`, covering success, missing file, unsupported extension). Full suite: 21/21 passing.
+
+**Next steps:** start `retrieval/hybrid.py` (vector store `search` + a keyword/BM25 signal) and `retrieval/router.py` to begin the query half; a `GET/POST /query` route can follow the same `Depends`-singleton pattern used here.
