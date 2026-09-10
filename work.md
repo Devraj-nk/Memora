@@ -71,3 +71,16 @@ Implemented [`ingestion/embedder.py`](src/memora/ingestion/embedder.py): `embed(
 - Tests added in [`tests/test_embedder.py`](tests/test_embedder.py): shape/dimension check, empty input, determinism, and a semantic sanity check (similar sentences score closer than unrelated ones on dot product).
 
 **Next steps:** implement `memory/vector_store.py` (LanceDB) so ingested chunks + embeddings can actually be persisted and searched, then wire `ingestion/parser.py` → `chunker.py` → `embedder.py` → `vector_store.py` into a single ingest path (likely called from `api/routes/ingest.py`).
+
+## 2026-09-10 — Vector store implemented
+
+Implemented [`memory/vector_store.py`](src/memora/memory/vector_store.py): `VectorStore(path)` wraps LanceDB with `add(chunks, embeddings)` and `search(query_vector, top_k)` -> `list[Match]`.
+
+- `add`/`search` open the `chunks` table lazily and catch the `ValueError` LanceDB raises for a missing table to decide create-vs-open — deliberately avoided `table_names()` (deprecated) and `list_tables()`/`table_exists()` (version-fragile: `table_exists` isn't even implemented for local connections on lancedb 0.38) in favor of this more stable open/create pattern. Verified directly against the installed lancedb 0.38.0 API before writing this.
+- `Match.distance` is LanceDB's raw L2 distance (lower = more similar). Since `ingestion/embedder.py` already L2-normalizes vectors, ranking by L2 distance agrees with ranking by cosine similarity, so no extra normalization needed here.
+- `add([], [])` is a no-op; mismatched `chunks`/`embeddings` lengths raise `ValueError`; `search` on an empty/nonexistent store returns `[]` instead of erroring.
+- Tests in [`tests/test_vector_store.py`](tests/test_vector_store.py) use `tmp_path` for an isolated on-disk LanceDB per test: empty-store search, nearest-match ranking, accumulation across multiple `add()` calls, no-op empty add, and the length-mismatch error. Full suite: 16/16 passing.
+
+This completes the ingest half of the pipeline end to end: `parser` → `chunker` → `embedder` → `vector_store`.
+
+**Next steps:** wire these four into a single ingest function callable from `api/routes/ingest.py`, then start on `retrieval/hybrid.py` (needs this vector store's `search`, plus a keyword/BM25 signal) to begin the query half.
