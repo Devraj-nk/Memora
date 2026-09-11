@@ -99,3 +99,15 @@ Wired [`api/routes/ingest.py`](src/memora/api/routes/ingest.py): `POST /ingest/`
 Tests: [`tests/test_pipeline.py`](tests/test_pipeline.py) (pipeline function directly, no HTTP) and [`tests/test_ingest_route.py`](tests/test_ingest_route.py) (through `TestClient`, covering success, missing file, unsupported extension). Full suite: 21/21 passing.
 
 **Next steps:** start `retrieval/hybrid.py` (vector store `search` + a keyword/BM25 signal) and `retrieval/router.py` to begin the query half; a `GET/POST /query` route can follow the same `Depends`-singleton pattern used here.
+
+## 2026-09-12 — Hybrid retrieval implemented
+
+Implemented [`retrieval/hybrid.py`](src/memora/retrieval/hybrid.py): `retrieve(query, store, top_k=10)` combines the vector store's semantic `search` with a `rank-bm25` keyword signal into one ranked `list[RetrievedChunk]`.
+
+- Both signals rank over the *full* corpus (`store.all_chunks()` for BM25, `store.search(top_k=len(chunks))` for semantic), then combine via reciprocal rank fusion (RRF, k=60) — fusing by rank rather than raw score sidesteps normalizing BM25 scores against L2 distances, which live on unrelated scales.
+- Added `VectorStore.all_chunks()` ([memory/vector_store.py](src/memora/memory/vector_store.py)) to support this — reads the full table via `to_arrow().to_pylist()`, not `to_pandas()`, since `pandas` isn't an installed dependency here.
+- Knowledge-graph signal is intentionally not wired in yet (`knowledge_graph/` is still a stub) — module docstring notes this so it isn't mistaken for an oversight.
+- `retrieve` returns `[]` immediately on an empty store, skipping both signals.
+- Tests: [`tests/test_hybrid.py`](tests/test_hybrid.py) (empty store, an exact-keyword match that BM25 surfaces even though it's semantically unrelated to the rest of the corpus, `top_k` limiting, descending score order) and two new cases in [`tests/test_vector_store.py`](tests/test_vector_store.py) for `all_chunks()`. Full suite: 27/27 passing.
+
+**Next steps:** implement `retrieval/reranker.py` (cross-encoder over `retrieve()`'s candidates) and `retrieval/router.py` to tie parsing/routing of a query together, then wire a `GET/POST /query` route the way `ingest.py` wires the ingest pipeline.

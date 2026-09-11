@@ -55,3 +55,19 @@ def test_add_mismatched_lengths_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         store.add([_chunk("only one", 0)], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+
+
+def test_all_chunks_on_empty_store_returns_empty_list(tmp_path: Path) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+
+    assert store.all_chunks() == []
+
+
+def test_all_chunks_returns_every_stored_chunk(tmp_path: Path) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+    store.add([_chunk("first", 0), _chunk("second", 1)], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+
+    chunks = store.all_chunks()
+
+    assert {c.text for c in chunks} == {"first", "second"}
+    assert all(c.source == "s.txt" for c in chunks)

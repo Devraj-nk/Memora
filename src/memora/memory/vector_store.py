@@ -55,6 +55,23 @@ class VectorStore:
         except ValueError:
             self._db.create_table(_TABLE_NAME, data=rows)
 
+    def all_chunks(self) -> list[Chunk]:
+        try:
+            table = self._db.open_table(_TABLE_NAME)
+        except ValueError:
+            return []
+
+        return [
+            Chunk(
+                text=r["text"],
+                source=r["source"],
+                chunk_index=r["chunk_index"],
+                start_offset=r["start_offset"],
+                end_offset=r["end_offset"],
+            )
+            for r in table.to_arrow().to_pylist()
+        ]
+
     def search(self, query_vector: list[float], top_k: int = 5) -> list[Match]:
         try:
             table = self._db.open_table(_TABLE_NAME)
