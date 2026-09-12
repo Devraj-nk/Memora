@@ -111,3 +111,14 @@ Implemented [`retrieval/hybrid.py`](src/memora/retrieval/hybrid.py): `retrieve(q
 - Tests: [`tests/test_hybrid.py`](tests/test_hybrid.py) (empty store, an exact-keyword match that BM25 surfaces even though it's semantically unrelated to the rest of the corpus, `top_k` limiting, descending score order) and two new cases in [`tests/test_vector_store.py`](tests/test_vector_store.py) for `all_chunks()`. Full suite: 27/27 passing.
 
 **Next steps:** implement `retrieval/reranker.py` (cross-encoder over `retrieve()`'s candidates) and `retrieval/router.py` to tie parsing/routing of a query together, then wire a `GET/POST /query` route the way `ingest.py` wires the ingest pipeline.
+
+## 2026-09-12 (cont.) — Reranker implemented
+
+Implemented [`retrieval/reranker.py`](src/memora/retrieval/reranker.py): `rerank(query, candidates, model_name=None)` scores each `hybrid.RetrievedChunk` with a cross-encoder (`sentence-transformers/cross-encoder`, default model from `settings.reranker_model`) and returns `list[RerankedChunk]` sorted by relevance score, descending.
+
+- Follows `ingestion/embedder.py`'s lazy-load-and-cache pattern (`lru_cache` on `_get_model`, keyed on model name) so the cross-encoder loads once per process.
+- New `RerankedChunk` dataclass rather than reusing `RetrievedChunk` — its `score` is a cross-encoder relevance score, not comparable to `RetrievedChunk.score` (an RRF fusion score), so keeping them distinct types avoids silently mixing the two.
+- `rerank(query, [])` short-circuits to `[]` without touching the model.
+- Tests in [`tests/test_reranker.py`](tests/test_reranker.py): empty input, correct ordering on an obviously-more-relevant candidate, and metadata (source/chunk_index) preserved through reranking. Full suite: 30/30 passing.
+
+**Next steps:** implement `retrieval/router.py` to tie `hybrid.retrieve()` → `reranker.rerank()` together end to end, then wire a `GET/POST /query` route (same `Depends`-singleton pattern as `ingest.py`).
