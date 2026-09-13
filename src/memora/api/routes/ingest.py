@@ -1,18 +1,11 @@
-from functools import lru_cache
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from memora.config import settings
+from memora.api.dependencies import get_vector_store
 from memora.ingestion.pipeline import ingest_source
 from memora.memory.vector_store import VectorStore
 
 router = APIRouter()
-
-
-@lru_cache(maxsize=1)
-def get_vector_store() -> VectorStore:
-    return VectorStore(settings.vector_store_path)
 
 
 class IngestRequest(BaseModel):

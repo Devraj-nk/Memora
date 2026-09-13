@@ -1,6 +1,43 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+from memora.api.dependencies import get_observability_store, get_vector_store
+from memora.memory.vector_store import VectorStore
+from memora.observability.store import ObservabilityStore
+from memora.retrieval.router import answer
 
 router = APIRouter()
 
-# POST /query — run the memory router: hybrid retrieval -> rerank -> context
-# builder -> LLM, returning an answer plus sources and a trace id.
+
+class QueryRequest(BaseModel):
+    query: str
+
+
+class RankedChunk(BaseModel):
+    text: str
+    source: str
+    chunk_index: int
+    score: float
+
+
+class QueryResponse(BaseModel):
+    answer: str
+    sources: list[RankedChunk]
+    trace_id: str
+
+
+@router.post("/", response_model=QueryResponse)
+def query(
+    request: QueryRequest,
+    store: VectorStore = Depends(get_vector_store),
+    observability_store: ObservabilityStore = Depends(get_observability_store),
+) -> QueryResponse:
+    result = answer(request.query, store, observability_store)
+    return QueryResponse(
+        answer=result.answer,
+        sources=[
+            RankedChunk(text=s.text, source=s.source, chunk_index=s.chunk_index, score=s.score)
+            for s in result.sources
+        ],
+        trace_id=result.trace_id,
+    )
