@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from memora.knowledge_graph.graph_store import Conflict
 from memora.observability.store import ObservabilityStore
 from memora.observability.tracer import record_trace
 from memora.retrieval.hybrid import RetrievedChunk
@@ -28,3 +29,24 @@ def test_record_trace_generates_unique_ids(tmp_path: Path) -> None:
     id_b = record_trace("q2", [], [], "", "b", store)
 
     assert id_a != id_b
+
+
+def test_record_trace_persists_conflicts(tmp_path: Path) -> None:
+    store = ObservabilityStore(str(tmp_path / "obs.sqlite3"))
+    conflicts = [Conflict(subject="Alice", relation="lives in", objects=["Paris", "Tokyo"])]
+
+    trace_id = record_trace("q", [], [], "", "a", store, conflicts)
+
+    saved = store.get(trace_id)
+    assert saved is not None
+    assert saved.conflicts == [{"subject": "Alice", "relation": "lives in", "objects": ["Paris", "Tokyo"]}]
+
+
+def test_record_trace_defaults_to_no_conflicts(tmp_path: Path) -> None:
+    store = ObservabilityStore(str(tmp_path / "obs.sqlite3"))
+
+    trace_id = record_trace("q", [], [], "", "a", store)
+
+    saved = store.get(trace_id)
+    assert saved is not None
+    assert saved.conflicts == []

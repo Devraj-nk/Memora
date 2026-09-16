@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from memora.api.dependencies import get_vector_store
+from memora.api.dependencies import get_graph_store, get_vector_store
 from memora.ingestion.pipeline import ingest_source
+from memora.knowledge_graph.graph_store import GraphStore
 from memora.memory.vector_store import VectorStore
 
 router = APIRouter()
@@ -18,9 +19,13 @@ class IngestResponse(BaseModel):
 
 
 @router.post("/", response_model=IngestResponse)
-def ingest(request: IngestRequest, store: VectorStore = Depends(get_vector_store)) -> IngestResponse:
+def ingest(
+    request: IngestRequest,
+    store: VectorStore = Depends(get_vector_store),
+    graph_store: GraphStore = Depends(get_graph_store),
+) -> IngestResponse:
     try:
-        result = ingest_source(request.path, store)
+        result = ingest_source(request.path, store, graph_store)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Source not found: {request.path}")
     except ValueError as exc:

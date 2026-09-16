@@ -12,7 +12,7 @@ from memora.retrieval.reranker import RerankedChunk
 _CHARS_PER_TOKEN = 4
 
 
-def _estimate_tokens(text: str) -> int:
+def estimate_tokens(text: str) -> int:
     return max(1, len(text) // _CHARS_PER_TOKEN)
 
 
@@ -22,7 +22,7 @@ def build_context(memories: list[RerankedChunk], token_budget: int) -> str:
 
     for memory in memories:
         block = f"[{memory.source}]\n{memory.text}"
-        cost = _estimate_tokens(block)
+        cost = estimate_tokens(block)
         if used_tokens + cost > token_budget:
             continue
         sections.append(block)

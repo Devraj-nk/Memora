@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS traces (
     query TEXT NOT NULL,
     retrieved TEXT NOT NULL,
     reranked TEXT NOT NULL,
+    conflicts TEXT NOT NULL,
     context TEXT NOT NULL,
     response TEXT NOT NULL,
     created_at TEXT NOT NULL
@@ -27,9 +28,23 @@ class Trace:
     query: str
     retrieved: list[dict]
     reranked: list[dict]
+    conflicts: list[dict]
     context: str
     response: str
     created_at: str
+
+
+def _row_to_trace(row: tuple) -> Trace:
+    return Trace(
+        trace_id=row[0],
+        query=row[1],
+        retrieved=json.loads(row[2]),
+        reranked=json.loads(row[3]),
+        conflicts=json.loads(row[4]),
+        context=row[5],
+        response=row[6],
+        created_at=row[7],
+    )
 
 
 class ObservabilityStore:
@@ -47,13 +62,14 @@ class ObservabilityStore:
         try:
             conn.execute(
                 "INSERT INTO traces "
-                "(trace_id, query, retrieved, reranked, context, response, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "(trace_id, query, retrieved, reranked, conflicts, context, response, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     trace.trace_id,
                     trace.query,
                     json.dumps(trace.retrieved),
                     json.dumps(trace.reranked),
+                    json.dumps(trace.conflicts),
                     trace.context,
                     trace.response,
                     trace.created_at,
@@ -67,22 +83,23 @@ class ObservabilityStore:
         conn = sqlite3.connect(self._path)
         try:
             row = conn.execute(
-                "SELECT trace_id, query, retrieved, reranked, context, response, created_at "
+                "SELECT trace_id, query, retrieved, reranked, conflicts, context, response, created_at "
                 "FROM traces WHERE trace_id = ?",
                 (trace_id,),
             ).fetchone()
         finally:
             conn.close()
 
-        if row is None:
-            return None
+        return None if row is None else _row_to_trace(row)
 
-        return Trace(
-            trace_id=row[0],
-            query=row[1],
-            retrieved=json.loads(row[2]),
-            reranked=json.loads(row[3]),
-            context=row[4],
-            response=row[5],
-            created_at=row[6],
-        )
+    def list_traces(self) -> list[Trace]:
+        conn = sqlite3.connect(self._path)
+        try:
+            rows = conn.execute(
+                "SELECT trace_id, query, retrieved, reranked, conflicts, context, response, created_at "
+                "FROM traces ORDER BY created_at DESC"
+            ).fetchall()
+        finally:
+            conn.close()
+
+        return [_row_to_trace(row) for row in rows]

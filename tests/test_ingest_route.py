@@ -3,14 +3,20 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+import memora.ingestion.pipeline as pipeline_module
 from memora.api.main import app
-from memora.api.routes.ingest import get_vector_store
+from memora.api.routes.ingest import get_graph_store, get_vector_store
+from memora.knowledge_graph.graph_store import GraphStore
 from memora.memory.vector_store import VectorStore
 
 
 @pytest.fixture
-def client(tmp_path: Path):
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    # Knowledge-graph extraction calls the real LLM; stub it out so these
+    # route tests stay fast and don't depend on Ollama actually running.
+    monkeypatch.setattr(pipeline_module, "extract", lambda text: [])
     app.dependency_overrides[get_vector_store] = lambda: VectorStore(str(tmp_path / "db"))
+    app.dependency_overrides[get_graph_store] = lambda: GraphStore(str(tmp_path / "graph.sqlite3"))
     try:
         with TestClient(app) as test_client:
             yield test_client

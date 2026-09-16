@@ -5,6 +5,8 @@ import pytest
 import memora.retrieval.router as router_module
 from memora.ingestion.chunker import Chunk
 from memora.ingestion.embedder import embed
+from memora.knowledge_graph.extractor import Relationship
+from memora.knowledge_graph.graph_store import GraphStore
 from memora.memory.vector_store import VectorStore
 from memora.observability.store import ObservabilityStore
 from memora.retrieval.router import answer, route
@@ -83,3 +85,35 @@ def test_answer_passes_query_and_context_to_the_llm(tmp_path: Path, monkeypatch:
     assert len(captured_prompts) == 1
     assert "what does memora track?" in captured_prompts[0]
     assert "Memora tracks how memory is retrieved and used." in captured_prompts[0]
+
+
+def test_answer_records_conflicts_from_graph_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+    obs_store = ObservabilityStore(str(tmp_path / "obs.sqlite3"))
+    graph_store = GraphStore(str(tmp_path / "graph.sqlite3"))
+    _add(store, ["Alice lives in Paris according to her profile."])
+    graph_store.add([Relationship(subject="Alice", relation="lives in", object="Paris")], "s.txt", 0)
+    graph_store.add([Relationship(subject="Alice", relation="lives in", object="Tokyo")], "s.txt", 0)
+    monkeypatch.setattr(router_module, "generate", lambda prompt: "Alice's location is unclear.")
+
+    result = answer("Where does Alice live?", store, obs_store, graph_store)
+
+    saved = obs_store.get(result.trace_id)
+    assert saved is not None
+    assert len(saved.conflicts) == 1
+    assert saved.conflicts[0]["subject"] == "Alice"
+
+
+def test_answer_without_graph_store_records_no_conflicts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+    obs_store = ObservabilityStore(str(tmp_path / "obs.sqlite3"))
+    _add(store, ["Python is popular."])
+    monkeypatch.setattr(router_module, "generate", lambda prompt: "ok")
+
+    result = answer("python", store, obs_store)
+
+    saved = obs_store.get(result.trace_id)
+    assert saved is not None
+    assert saved.conflicts == []

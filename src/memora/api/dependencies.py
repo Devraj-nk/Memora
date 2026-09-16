@@ -8,6 +8,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from memora.config import settings
+from memora.knowledge_graph.graph_store import GraphStore
 from memora.memory.vector_store import VectorStore
 from memora.observability.store import ObservabilityStore
 
@@ -20,3 +21,8 @@ def get_vector_store() -> VectorStore:
 @lru_cache(maxsize=1)
 def get_observability_store() -> ObservabilityStore:
     return ObservabilityStore(settings.observability_db_path)
+
+
+@lru_cache(maxsize=1)
+def get_graph_store() -> GraphStore:
+    return GraphStore(settings.graph_db_path)

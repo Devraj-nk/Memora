@@ -1,8 +1,9 @@
-"""Combines keyword (rank-bm25) and semantic (vector store) signals into a
-single ranked candidate set for the reranker.
+"""Combines keyword (rank-bm25), semantic (vector store), and knowledge-graph
+signals into a single ranked candidate set for the reranker.
 
-Knowledge-graph signals are not wired in yet (knowledge_graph/ is still a
-stub) - candidates come from these two signals only for now.
+The graph signal is optional (pass `graph_store=None` to skip it) since it
+depends on knowledge_graph.extractor having run at ingest time, which is
+itself optional.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from typing import Protocol
 from rank_bm25 import BM25Okapi
 
 from memora.ingestion.embedder import embed
+from memora.knowledge_graph.graph_store import GraphStore
 from memora.memory.vector_store import VectorStore
 
 
@@ -45,7 +47,12 @@ def _tokenize(text: str) -> list[str]:
     return text.lower().split()
 
 
-def retrieve(query: str, store: VectorStore, top_k: int = DEFAULT_TOP_K) -> list[RetrievedChunk]:
+def retrieve(
+    query: str,
+    store: VectorStore,
+    top_k: int = DEFAULT_TOP_K,
+    graph_store: GraphStore | None = None,
+) -> list[RetrievedChunk]:
     chunks = store.all_chunks()
     if not chunks:
         return []
@@ -59,13 +66,26 @@ def retrieve(query: str, store: VectorStore, top_k: int = DEFAULT_TOP_K) -> list
     keyword_scores = bm25.get_scores(_tokenize(query))
     keyword_ranked = [chunks[i] for i in sorted(range(len(chunks)), key=lambda i: keyword_scores[i], reverse=True)]
 
+    ranked_lists: list[list[_HasChunkFields]] = [vector_ranked, keyword_ranked]
+
+    if graph_store is not None:
+        # Graph ranking: chunks touching entities the query mentions,
+        # ranked by how many matched relationships lead to each chunk.
+        chunks_by_key = {(c.source, c.chunk_index): c for c in chunks}
+        graph_ranked = [
+            chunks_by_key[key] for key in graph_store.related_chunks(query) if key in chunks_by_key
+        ]
+        if graph_ranked:
+            ranked_lists.append(graph_ranked)
+
     # Reciprocal rank fusion: each signal votes by rank rather than raw
-    # score, so BM25 scores and L2 distances (different scales entirely)
-    # never need to be normalized against each other.
+    # score, so BM25 scores, L2 distances, and graph edge counts (three
+    # different scales entirely) never need to be normalized against each
+    # other.
     fused_scores: dict[tuple[str, int], float] = {}
     fused_chunks: dict[tuple[str, int], _HasChunkFields] = {}
 
-    for ranked_list in (vector_ranked, keyword_ranked):
+    for ranked_list in ranked_lists:
         for rank, item in enumerate(ranked_list):
             key = (item.source, item.chunk_index)
             fused_scores[key] = fused_scores.get(key, 0.0) + 1.0 / (_RRF_K + rank + 1)

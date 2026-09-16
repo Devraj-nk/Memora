@@ -2,6 +2,8 @@ from pathlib import Path
 
 from memora.ingestion.chunker import Chunk
 from memora.ingestion.embedder import embed
+from memora.knowledge_graph.extractor import Relationship
+from memora.knowledge_graph.graph_store import GraphStore
 from memora.memory.vector_store import VectorStore
 from memora.retrieval.hybrid import retrieve
 
@@ -59,3 +61,31 @@ def test_retrieve_results_are_sorted_by_score_descending(tmp_path: Path) -> None
 
     scores = [r.score for r in results]
     assert scores == sorted(scores, reverse=True)
+
+
+def test_retrieve_graph_signal_increases_fused_score(tmp_path: Path) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+    _add(store, ["Bananas are a good source of potassium.", "Oranges are rich in vitamin C."])
+    graph_store = GraphStore(str(tmp_path / "graph.sqlite3"))
+    graph_store.add(
+        [Relationship(subject="Memora", relation="uses", object="LanceDB")], source="s.txt", chunk_index=0
+    )
+
+    without = {(r.source, r.chunk_index): r.score for r in retrieve("Tell me about Memora", store, top_k=2)}
+    with_graph = {
+        (r.source, r.chunk_index): r.score
+        for r in retrieve("Tell me about Memora", store, top_k=2, graph_store=graph_store)
+    }
+
+    assert with_graph[("s.txt", 0)] > without[("s.txt", 0)]
+
+
+def test_retrieve_graph_store_with_no_matches_behaves_like_no_graph_store(tmp_path: Path) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+    _add(store, ["Python is a popular programming language for data science.", "The weather today is sunny."])
+    graph_store = GraphStore(str(tmp_path / "graph.sqlite3"))
+
+    without = retrieve("python programming", store, top_k=2)
+    with_graph = retrieve("python programming", store, top_k=2, graph_store=graph_store)
+
+    assert without == with_graph

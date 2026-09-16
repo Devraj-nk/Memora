@@ -4,9 +4,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import memora.retrieval.router as router_module
-from memora.api.dependencies import get_observability_store, get_vector_store
+from memora.api.dependencies import get_graph_store, get_observability_store, get_vector_store
 from memora.api.main import app
 from memora.ingestion.pipeline import ingest_source
+from memora.knowledge_graph.graph_store import GraphStore
 from memora.memory.vector_store import VectorStore
 from memora.observability.store import ObservabilityStore
 
@@ -22,10 +23,21 @@ def observability_store(tmp_path: Path) -> ObservabilityStore:
 
 
 @pytest.fixture
-def client(store: VectorStore, observability_store: ObservabilityStore, monkeypatch: pytest.MonkeyPatch):
+def graph_store(tmp_path: Path) -> GraphStore:
+    return GraphStore(str(tmp_path / "graph.sqlite3"))
+
+
+@pytest.fixture
+def client(
+    store: VectorStore,
+    observability_store: ObservabilityStore,
+    graph_store: GraphStore,
+    monkeypatch: pytest.MonkeyPatch,
+):
     monkeypatch.setattr(router_module, "generate", lambda prompt: "a generated answer")
     app.dependency_overrides[get_vector_store] = lambda: store
     app.dependency_overrides[get_observability_store] = lambda: observability_store
+    app.dependency_overrides[get_graph_store] = lambda: graph_store
     try:
         with TestClient(app) as test_client:
             yield test_client

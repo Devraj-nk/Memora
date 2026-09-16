@@ -1,9 +1,5 @@
 """Records one retrieval/response cycle (query -> retrieved -> scores ->
 reranking -> conflicts -> selected -> context -> response) as a trace.
-
-Conflicts aren't recorded yet (knowledge_graph/ is still a stub, and
-contradiction detection needs it) - a trace currently covers retrieval,
-reranking, context, and response.
 """
 
 from __future__ import annotations
@@ -12,6 +8,7 @@ import uuid
 from dataclasses import asdict
 from datetime import UTC, datetime
 
+from memora.knowledge_graph.graph_store import Conflict
 from memora.observability.store import ObservabilityStore, Trace
 from memora.retrieval.hybrid import RetrievedChunk
 from memora.retrieval.reranker import RerankedChunk
@@ -24,12 +21,14 @@ def record_trace(
     context: str,
     response: str,
     store: ObservabilityStore,
+    conflicts: list[Conflict] | None = None,
 ) -> str:
     trace = Trace(
         trace_id=str(uuid.uuid4()),
         query=query,
         retrieved=[asdict(chunk) for chunk in retrieved],
         reranked=[asdict(chunk) for chunk in reranked],
+        conflicts=[asdict(conflict) for conflict in (conflicts or [])],
         context=context,
         response=response,
         created_at=datetime.now(UTC).isoformat(),

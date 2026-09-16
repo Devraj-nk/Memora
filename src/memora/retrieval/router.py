@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from memora.knowledge_graph.graph_store import GraphStore
 from memora.llm.client import generate
 from memora.memory.context_builder import build_context
 from memora.memory.vector_store import VectorStore
@@ -39,8 +40,9 @@ def route(
     store: VectorStore,
     candidate_k: int = DEFAULT_CANDIDATE_K,
     top_k: int = DEFAULT_TOP_K,
+    graph_store: GraphStore | None = None,
 ) -> list[RerankedChunk]:
-    candidates = retrieve(query, store, top_k=candidate_k)
+    candidates = retrieve(query, store, top_k=candidate_k, graph_store=graph_store)
     return rerank(query, candidates)[:top_k]
 
 
@@ -48,15 +50,19 @@ def answer(
     query: str,
     store: VectorStore,
     observability_store: ObservabilityStore,
+    graph_store: GraphStore | None = None,
     candidate_k: int = DEFAULT_CANDIDATE_K,
     top_k: int = DEFAULT_TOP_K,
     token_budget: int = DEFAULT_TOKEN_BUDGET,
 ) -> AnswerResult:
-    retrieved = retrieve(query, store, top_k=candidate_k)
+    retrieved = retrieve(query, store, top_k=candidate_k, graph_store=graph_store)
     reranked = rerank(query, retrieved)[:top_k]
     context = build_context(reranked, token_budget)
     response = generate(_PROMPT_TEMPLATE.format(context=context, query=query))
 
-    trace_id = record_trace(query, retrieved, reranked, context, response, observability_store)
+    conflicts = (
+        graph_store.conflicts(set(graph_store.match_entities(query))) if graph_store is not None else None
+    )
+    trace_id = record_trace(query, retrieved, reranked, context, response, observability_store, conflicts)
 
     return AnswerResult(answer=response, sources=reranked, trace_id=trace_id)
