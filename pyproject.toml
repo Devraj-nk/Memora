@@ -14,7 +14,11 @@ dependencies = [
     "networkx>=3.3",
     "rank-bm25>=0.2",
     "ollama>=0.3",
+    "httpx>=0.27",
 ]
+
+[project.scripts]
+memora = "memora.cli:main"
 
 [project.optional-dependencies]
 # Heavier parsers, only needed once ingestion moves past plain text/markdown/code.
@@ -29,7 +33,11 @@ graph-db = [
 ]
 dev = [
     "pytest>=8.3",
-    "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: exercises a real downloaded model (embedder/reranker/grounding) rather than a mock",
 ]
 
 [tool.setuptools.packages.find]

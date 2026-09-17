@@ -5,6 +5,7 @@ metadata (source, offset) to trace a chunk back to its origin.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from memora.ingestion.parser import ParsedDocument
 
@@ -19,6 +20,11 @@ class Chunk:
     chunk_index: int
     start_offset: int
     end_offset: int
+    # Optional (defaults to None) so existing call sites that build a Chunk
+    # by hand - mostly tests - don't need updating. Real chunks from
+    # chunk() below always populate it from the source document's mtime,
+    # which is what observability.metrics' freshness metric reads.
+    modified_at: datetime | None = None
 
 
 def chunk(
@@ -57,6 +63,7 @@ def chunk(
                     chunk_index=index,
                     start_offset=start,
                     end_offset=end,
+                    modified_at=document.modified_at,
                 )
             )
             index += 1

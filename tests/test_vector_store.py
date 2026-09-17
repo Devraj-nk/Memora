@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -71,3 +72,35 @@ def test_all_chunks_returns_every_stored_chunk(tmp_path: Path) -> None:
 
     assert {c.text for c in chunks} == {"first", "second"}
     assert all(c.source == "s.txt" for c in chunks)
+
+
+def test_all_chunks_without_modified_at_round_trips_as_none(tmp_path: Path) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+    store.add([_chunk("first", 0)], [[1.0, 0.0, 0.0]])
+
+    assert store.all_chunks()[0].modified_at is None
+
+
+def test_all_chunks_preserves_modified_at(tmp_path: Path) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+    timestamp = datetime(2026, 9, 16, 12, 0, 0, tzinfo=UTC)
+    chunk = Chunk(text="a", source="s.txt", chunk_index=0, start_offset=0, end_offset=1, modified_at=timestamp)
+    store.add([chunk], [[1.0, 0.0, 0.0]])
+
+    assert store.all_chunks()[0].modified_at == timestamp
+
+
+def test_all_chunks_with_vectors_on_empty_store_returns_empty_list(tmp_path: Path) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+
+    assert store.all_chunks_with_vectors() == []
+
+
+def test_all_chunks_with_vectors_returns_chunk_and_its_embedding(tmp_path: Path) -> None:
+    store = VectorStore(str(tmp_path / "db"))
+    store.add([_chunk("first", 0)], [[1.0, 0.0, 0.0]])
+
+    [(chunk, vector)] = store.all_chunks_with_vectors()
+
+    assert chunk.text == "first"
+    assert list(vector) == pytest.approx([1.0, 0.0, 0.0])
