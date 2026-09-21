@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memora | Memory console</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">M</div>
+        <div>
+          <strong>memora</strong>
+          <span>memory console</span>
+        </div>
+      </div>
+      <div class="system-status"><span class="status-dot" id="health-dot"></span><span id="health-label">Checking local engine</span></div>
+      <nav class="nav" aria-label="Primary navigation">
+        <button class="nav-item active" data-view="ask"><span class="nav-icon">⌁</span>Ask memory</button>
+        <button class="nav-item" data-view="ingest"><span class="nav-icon">↥</span>Ingest source</button>
+        <button class="nav-item" data-view="observability"><span class="nav-icon">◌</span>Observability</button>
+      </nav>
+      <div class="sidebar-note">
+        <span class="eyebrow">LOCAL FIRST</span>
+        <p>Your documents stay close. Memora makes the retrieval path inspectable.</p>
+      </div>
+      <div class="sidebar-footer">PERSONAL KNOWLEDGE ENGINE <span>v0.1</span></div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow" id="view-kicker">MEMORY LAYER / QUERY</span>
+          <h1 id="view-title">Ask your memory</h1>
+        </div>
+        <button class="ghost-button" id="refresh-metrics" type="button"><span>↻</span> Refresh signal</button>
+      </header>
+
+      <section class="view active" id="view-ask">
+        <div class="intro-row">
+          <div>
+            <p class="lede">Search across your ingested knowledge, then follow the evidence all the way to the answer.</p>
+          </div>
+          <div class="signal-chip"><span class="pulse"></span> HYBRID RETRIEVAL ONLINE</div>
+        </div>
+        <form class="query-form" id="query-form">
+          <label for="query-input">What do you want to remember?</label>
+          <div class="query-box">
+            <textarea id="query-input" rows="2" placeholder="Ask about a project, note, decision, or idea..." required></textarea>
+            <button class="primary-button" type="submit"><span>→</span> Ask Memora</button>
+          </div>
+          <div class="form-hint">Vector similarity + keyword search + graph context, reranked before the answer.</div>
+        </form>
+        <div class="answer-layout">
+          <article class="answer-panel panel" id="answer-panel">
+            <div class="panel-heading"><div><span class="eyebrow">RESPONSE</span><h2>Waiting for a question</h2></div><span class="panel-badge" id="answer-state">READY</span></div>
+            <div class="empty-state" id="answer-empty"><div class="empty-glyph">✦</div><p>Your grounded response will appear here, with its source trail alongside it.</p></div>
+            <div class="answer-body hidden" id="answer-body"></div>
+            <div class="answer-meta hidden" id="answer-meta"></div>
+          </article>
+          <aside class="sources-panel panel">
+            <div class="panel-heading"><div><span class="eyebrow">EVIDENCE</span><h2>Source trail</h2></div><span class="count-badge" id="source-count">0</span></div>
+            <div class="source-list" id="source-list"><p class="muted">Sources will be ranked here after your first query.</p></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-ingest">
+        <div class="intro-row">
+          <div><p class="lede">Turn a local text, Markdown, or code file into searchable memory and graph-aware context.</p></div>
+          <div class="feature-stamp">PARSE <span>→</span> CHUNK <span>→</span> EMBED <span>→</span> LINK</div>
+        </div>
+        <div class="ingest-layout">
+          <form class="panel ingest-form" id="ingest-form">
+            <span class="eyebrow">NEW SOURCE</span><h2>Bring knowledge in</h2>
+            <p class="muted">Enter a path available to the Memora server. The pipeline parses, chunks, embeds, and extracts graph relationships in one pass.</p>
+            <label for="path-input">Local file path</label>
+            <input id="path-input" type="text" placeholder="D:\\notes\\project.md" required>
+            <button class="primary-button" type="submit"><span>↥</span> Ingest source</button>
+            <div class="form-message" id="ingest-message"></div>
+          </form>
+          <div class="pipeline-visual">
+            <div class="pipeline-line"></div>
+            <div class="pipeline-step"><b>01</b><span><strong>Parse</strong><small>Read supported source formats</small></span></div>
+            <div class="pipeline-step"><b>02</b><span><strong>Chunk</strong><small>Keep context within useful windows</small></span></div>
+            <div class="pipeline-step"><b>03</b><span><strong>Understand</strong><small>Embed and extract relationships</small></span></div>
+            <div class="pipeline-step"><b>04</b><span><strong>Persist</strong><small>Store vectors and graph edges locally</small></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-observability">
+        <div class="intro-row"><div><p class="lede">See what the memory layer did, not only what it answered.</p></div><div class="feature-stamp">TRACEABLE BY DESIGN</div></div>
+        <div class="metric-grid" id="metric-grid">
+          <div class="metric-card"><span>TRACE COUNT</span><strong>—</strong><small>recorded query cycles</small></div>
+          <div class="metric-card accent"><span>GROUNDING RATE</span><strong>—</strong><small>answers supported by context</small></div>
+          <div class="metric-card"><span>AVG CONTEXT</span><strong>—</strong><small>tokens per response</small></div>
+          <div class="metric-card"><span>SOURCE COVERAGE</span><strong>—</strong><small>unique sources cited</small></div>
+        </div>
+        <div class="observability-layout">
+          <article class="panel evaluation-panel"><div class="panel-heading"><div><span class="eyebrow">REGRESSION SIGNAL</span><h2>Retrieval evaluation</h2></div></div><p class="muted">Generate synthetic questions from sampled chunks and check whether Memora retrieves them again.</p><form id="evaluate-form" class="inline-form"><label>Top K<input id="top-k" type="number" min="1" value="5"></label><label>Sample<input id="sample-size" type="number" min="1" value="10"></label><button class="secondary-button" type="submit">Run evaluation <span>↗</span></button></form><div class="evaluation-result" id="evaluation-result">No evaluation run yet.</div></article>
+          <article class="panel trace-panel"><div class="panel-heading"><div><span class="eyebrow">LATEST TRACE</span><h2>Retrieval anatomy</h2></div><span class="panel-badge" id="trace-state">EMPTY</span></div><div id="trace-content" class="trace-content"><p class="muted">Ask a question to inspect retrieved candidates, reranking, conflicts, and context.</p></div></article>
+        </div>
+      </section>
+      <div class="toast" id="toast" role="status"></div>
+    </main>
+  </div>
+</body>
+</html>

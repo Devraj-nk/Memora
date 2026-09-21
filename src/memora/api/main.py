@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from memora.api.routes import ingest, observability, query
 
@@ -8,7 +11,10 @@ app.include_router(ingest.router, prefix="/ingest", tags=["ingestion"])
 app.include_router(query.router, prefix="/query", tags=["query"])
 app.include_router(observability.router, prefix="/observability", tags=["observability"])
 
-
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+ui_directory = Path(__file__).resolve().parents[3] / "ui"
+app.mount("/", StaticFiles(directory=ui_directory, html=True), name="ui")

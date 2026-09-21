@@ -234,6 +234,12 @@ Config is read from `.env` via [`config.py`](src/memora/config.py) — see [`.en
 uvicorn memora.api.main:app --reload
 ```
 
+Open `http://localhost:8000/` for the Memora console. The UI provides three views:
+
+- **Ask memory** — query the full retrieval and answer pipeline, inspect cited sources, and follow the generated trace.
+- **Ingest source** — add a local text, Markdown, or code file to the parsing, chunking, embedding, and graph pipeline.
+- **Observability** — view memory-quality metrics, inspect the latest retrieval anatomy, and manually run the synthetic recall evaluation.
+
 This mounts:
 - `POST /ingest/` — `{"path": "<local file path>"}` → `{"source", "chunk_count"}`
 - `POST /query/` — `{"query": "<question>"}` → `{"answer", "sources", "trace_id"}`
