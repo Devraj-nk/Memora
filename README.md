@@ -224,6 +224,8 @@ pip install -e ".[dev]"
 ollama pull llama3.2:3b
 
 cp .env.example .env   # adjust model names / paths if needed
+
+demo_files is a local directory for your own notes, code, and documents to ingest. Add a file there to test/work
 ```
 
 Config is read from `.env` via [`config.py`](src/memora/config.py) — see [`.env.example`](.env.example) for every setting (LLM model/host, embedding/reranker/grounding model names, and on-disk paths for the vector store, graph, and observability DB, all under `data/db/` by default).
